@@ -53,7 +53,7 @@ def main_menu():
     keyboard = [
         [InlineKeyboardButton("💰 ПОЛУЧИТЬ 25КК 💰", callback_data="get_money")],
         [InlineKeyboardButton("🏠 ГЛАВНОЕ МЕНЮ 🏠", callback_data="main_menu")],
-        [InlineKeyboardButton("📢 НАШ КАНАЛ 📢", url="https://t.me/blackrussia_official")]
+        [InlineKeyboardButton("📢 НАШ КАНАЛ 📢", url="https://t.me/br_dev")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
