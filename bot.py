@@ -1,12 +1,13 @@
 import logging
 import os
 import asyncio
+import json
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # ========== КОНФИГ ==========
-TOKEN = os.environ.get("BOT_TOKEN", "8584111114:AAG_wDOnw-ZI8mVrzhja0aHUYTQNDOVBHV4")
+TOKEN = os.environ.get("BOT_TOKEN", "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "6005507174"))
 
 # Состояния для разговора
@@ -45,7 +46,6 @@ def mark_user_claimed(user_id):
     save_claimed_users()
 
 # Загружаем при старте
-import json
 load_claimed_users()
 
 # ========== КЛАВИАТУРЫ ==========
@@ -89,7 +89,11 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "⚠️ Бонус только **1 раз** на аккаунт!\n\n"
         "📌 **Выбери действие ниже:**"
     )
-    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+    try:
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+    except Exception as e:
+        if "Message is not modified" not in str(e):
+            raise e
 
 async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -107,7 +111,11 @@ async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🙏 Спасибо, что играете в Black Russia!\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+        try:
+            await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+        except Exception as e:
+            if "Message is not modified" not in str(e):
+                raise e
         return ConversationHandler.END
     
     await query.answer()
@@ -119,7 +127,11 @@ async def get_money_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 *Пример:* `Petya_Petrov`\n\n"
         "⚠️ Ник должен быть указан точно как в игре!"
     )
-    await query.edit_message_text(text, parse_mode="Markdown")
+    try:
+        await query.edit_message_text(text, parse_mode="Markdown")
+    except Exception as e:
+        if "Message is not modified" not in str(e):
+            raise e
     return NICKNAME
 
 async def get_nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
