@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # ========== КОНФИГ ==========
-TOKEN = os.environ.get("BOT_TOKEN", "8227199147:AAGISVvUfW1jst_ut-yUW0cokTyc8Rwj-pM")
+TOKEN = os.environ.get("BOT_TOKEN", "8584111114:AAG_wDOnw-ZI8mVrzhja0aHUYTQNDOVBHV4")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "6005507174"))
 
 # Состояния для разговора
